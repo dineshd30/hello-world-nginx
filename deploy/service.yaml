@@ -165,7 +165,7 @@ Resources:
     Properties:
       MaxCapacity: 6
       MinCapacity: 2
-      ResourceId: !Sub "service/${ECSCluster}/${ECSFargateService}"
+      ResourceId: "service/hello-world-ecs-cluster/nginx-service"
       RoleARN: !GetAtt ECSAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
