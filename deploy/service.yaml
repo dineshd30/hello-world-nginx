@@ -74,3 +74,4 @@ Resources:
         AwsvpcConfiguration:
           Subnets: !Ref PublicSubnetIds
           SecurityGroups: [!GetAtt ECSSecurityGroup.GroupId]
+          AssignPublicIp: "ENABLED"
