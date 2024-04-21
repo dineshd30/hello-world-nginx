@@ -9,7 +9,11 @@ Parameters:
   PublicSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: List of subnet IDs where the loan balancer will be placed
-    Default: "subnet-08db821a1ab864f21, subnet-0f7b7d413758e1ad1"
+    Default: "subnet-058555c7fcb44fef4, subnet-04b6507842bf22194"
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of subnet IDs where the Fargate tasks will be launched
+    Default: "subnet-0f30b4d4d2fa3d675, subnet-0f2367515573c9592"
   DesiredCount:
     Type: Number
     Default: 1
@@ -51,19 +55,78 @@ Resources:
           PortMappings:
             - ContainerPort: 80
 
-  ECSSecurityGroup:
+  LBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group allowing traffic from internet
+      GroupDescription: Security group allowing traffic from the internet
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: "86.18.138.129/32"
+          CidrIp: 0.0.0.0/0
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups: [!GetAtt LBSecurityGroup.GroupId]
+      Scheme: internet-facing
+      Type: application
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: LoadBalancer
+    Properties:
+      Name: nginx-target-group
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group allowing traffic from another security group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LBSecurityGroup
 
   ECSFargateService:
     Type: AWS::ECS::Service
+    DependsOn: Listener
     Properties:
       Cluster: !Ref ECSCluster
       ServiceName: nginx-service
@@ -72,6 +135,9 @@ Resources:
       DesiredCount: !Ref DesiredCount
       NetworkConfiguration:
         AwsvpcConfiguration:
-          Subnets: !Ref PublicSubnetIds
+          Subnets: !Ref PrivateSubnetIds
           SecurityGroups: [!GetAtt ECSSecurityGroup.GroupId]
-          AssignPublicIp: "ENABLED"
+      LoadBalancers:
+        - ContainerName: nginx-container
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroup
