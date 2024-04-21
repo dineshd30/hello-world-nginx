@@ -14,10 +14,6 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
     Description: List of subnet IDs where the Fargate tasks will be launched
     Default: "subnet-0f30b4d4d2fa3d675, subnet-0f2367515573c9592"
-  DesiredCount:
-    Type: Number
-    Default: 2
-    Description: The number of tasks to run in the service
 
 Resources:
   ECSCluster:
@@ -132,7 +128,6 @@ Resources:
       ServiceName: nginx-service
       TaskDefinition: !Ref TaskDefinition
       LaunchType: FARGATE
-      DesiredCount: !Ref DesiredCount
       NetworkConfiguration:
         AwsvpcConfiguration:
           Subnets: !Ref PrivateSubnetIds
@@ -169,11 +164,24 @@ Resources:
     DependsOn: ECSFargateService
     Properties:
       MaxCapacity: 6
-      MinCapacity: 1
+      MinCapacity: 2
       ResourceId: !Sub "service/${ECSCluster}/${ECSFargateService}"
       RoleARN: !GetAtt ECSAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
+
+  ScaleOutPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ScaleOutPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 70
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
 
   CPUAlarmHigh:
     Type: AWS::CloudWatch::Alarm
@@ -191,16 +199,3 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       AlarmActions:
         - !Ref ScaleOutPolicy
-
-  ScaleOutPolicy:
-    Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Properties:
-      PolicyName: ScaleOutPolicy
-      PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref ScalingTarget
-      TargetTrackingScalingPolicyConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ECSServiceAverageCPUUtilization
-        TargetValue: 70
-        ScaleInCooldown: 60
-        ScaleOutCooldown: 60
