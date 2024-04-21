@@ -1,7 +1,7 @@
 Description: Hello World VPC
 
 Parameters:
-  Service:
+  Name:
     Type: String
     Default: "hello-world-infra"
 
@@ -14,14 +14,14 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: !Sub ${Service}-vpc1
+          Value: !Sub ${Name}-vpc1
 
   InternetGateway:
     Type: "AWS::EC2::InternetGateway"
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub ${Service}-vpc1-igw
+          Value: !Sub ${Name}-vpc1-igw
 
   InternetGatewayAttachment:
     Type: "AWS::EC2::VPCGatewayAttachment"
@@ -35,7 +35,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${Service}-vpc1-rt-web
+          Value: !Sub ${Name}-vpc1-rt-web
 
   RouteTableWebIG:
     Type: "AWS::EC2::Route"
@@ -102,3 +102,92 @@ Resources:
       Tags:
         - Key: Name
           Value: sn-web-B
+
+  NatGatewayA:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIPA.AllocationId
+      SubnetId: !Ref SubnetWebA
+
+  NatGatewayB:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIPB.AllocationId
+      SubnetId: !Ref SubnetWebB
+
+  EIPA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  EIPB:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+
+  PrivateRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayB
+
+  PrivateSubnetRouteTableAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetAppA
+      RouteTableId: !Ref PrivateRouteTableA
+
+  PrivateSubnetRouteTableBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetAppB
+      RouteTableId: !Ref PrivateRouteTableB
+
+Outputs:
+  VpcId:
+    Description: ID of VPC
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcId"
+
+  SubnetWebAID:
+    Description: ID of the public subnet web A
+    Value: !Ref SubnetWebA
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetWebAID"
+
+  SubnetWebBID:
+    Description: ID of the public subnet web B
+    Value: !Ref SubnetWebB
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetWebBID"
+
+  SubnetAppAID:
+    Description: ID of the public subnet app A
+    Value: !Ref SubnetAppA
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetAppAID"
+
+  SubnetAppBID:
+    Description: ID of the public subnet app B
+    Value: !Ref SubnetAppB
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetAppBID"
