@@ -5,7 +5,7 @@ Parameters:
   VpcId:
     Type: String
     Description: Vpc Id
-    Default: "vpc-0395fea5268cb00b5"
+    Default: "vpc-0cc61355445877e7e"
   PublicSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: List of subnet IDs where the loan balancer will be placed
@@ -142,12 +142,36 @@ Resources:
           ContainerPort: 80
           TargetGroupArn: !Ref TargetGroup
 
+  ECSAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECSAutoScalingPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - ecs:UpdateService
+                  - ecs:DescribeServices
+                Resource: "*"
+
   ScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: ECSFargateService
     Properties:
       MaxCapacity: 6
       MinCapacity: 1
       ResourceId: !Sub "service/${ECSCluster}/${ECSFargateService}"
+      RoleARN: !GetAtt ECSAutoScalingRole.Arn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
