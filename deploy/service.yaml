@@ -16,7 +16,7 @@ Parameters:
     Default: "subnet-0f30b4d4d2fa3d675, subnet-0f2367515573c9592"
   DesiredCount:
     Type: Number
-    Default: 1
+    Default: 2
     Description: The number of tasks to run in the service
 
 Resources:
