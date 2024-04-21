@@ -8,6 +8,8 @@ This application serves a static HTML page using Nginx web server. It is deploye
 
 ## System Diagram
 
+![Hello World Nginx](/system_digram.png)
+
 ## Deployment
 
 ### Prerequisites
